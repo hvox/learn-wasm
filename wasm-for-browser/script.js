@@ -40,3 +40,9 @@ function executeWasm(url) {
 		(obj) => (window.wasm = obj.instance.exports).main()
 	).catch(error => console.error(error));
 }
+
+window.s = (ptr, length) => {
+	let string = new TextDecoder().decode(wasm.mem.buffer.slice(ptr, ptr + length));
+	// console.log(string);
+	return string;
+}
