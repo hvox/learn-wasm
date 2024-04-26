@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+from itertools import takewhile
 from pathlib import Path
 from string import whitespace
 
@@ -34,28 +35,46 @@ def text_to_ast(source):
 
 
 def ast_to_text(ast):
-    if isinstance(ast, str):
-        return ast
-    ast = [x for x in ast if isinstance(x, list) or x.strip()]
-    if len(ast) == 0:
-        return "()"
-    if len(ast) == 1 and isinstance(ast[0], str):
-        return "".join(x.strip() + "\n" for x in ast[0].strip().split("\n"))
-    lines = [f"({ast[0]}"]
-    for x in ast[1:]:
-        for line in ast_to_text(x).split("\n"):
-            lines.append("\t" + line)
-    lines.append(")")
-    return "\n".join(lines)
+    TYPES = list("i32 i64 f32 f64 string".split())
+    UNARY = [*[f"{t}.const" for t in TYPES], *["ref.null"], "call", "local.get", "local.set", "local.tee", "br_if"]
+    match ast:
+        case str(string):
+            return string
+        case "local", *params:
+            return "(local " + " ".join(map(ast_to_text, params)) + ")"
+        case f, *body if f in ["func", "loop", "then"]:
+            signature = list(takewhile((lambda t: not isinstance(t, str) and t[0] != "local" or t[0] == "$"), body))
+            body = iter(body[len(signature):])
+            lines = []
+            for instr in body:
+                if not isinstance(instr, str):
+                    lines.extend(ast_to_text(instr).splitlines())
+                elif instr in UNARY:
+                    lines.append(f"{instr} {next(body)}")
+                else:
+                    lines.append(ast_to_text(instr))
+            head = " ".join(ast_to_text(t).replace("\n", "").replace("\t", " ") for t in signature)
+            body = "".join("\t" + line + "\n" for line in lines)
+            return "(" + " ".join([f, head]) + "\n" * bool(body) + body + ")"
+        case head, *children:
+            content = "\n".join("\t" + line for child in children for line in ast_to_text(child).splitlines())
+            return f"({head}\n{content}\n)\n"
 
 
 def main(args: list[str]):
     assert len(args) == 2
     source = Path(args[1]).read_text()
-    print(source)
     ast = text_to_ast(source)
-    print(f"\x1b[93m{ast}\x1b[0m")
-    print(ast_to_text(ast))
+    print(ast)
+    for line1, line2 in zip((x for x in source.splitlines() if x), ast_to_text(ast).splitlines()):
+        if line1 == line2:
+            print(line1)
+        else:
+            if line1.rstrip() != line1 or line2.rstrip() != line2:
+                line1 += "\x1b[93m<EOL>"
+                line2 += "\x1b[93m<EOL>"
+            print(f"\x1b[92m{line1}\x1b[0m")
+            print(f"\x1b[91m{line2}\x1b[0m")
 
 
 if __name__ == "__main__":
