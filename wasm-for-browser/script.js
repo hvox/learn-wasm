@@ -34,12 +34,9 @@ window.onload = () => {
 
 function executeWasm(url) {
 	document.getElementById("output").innerText = "";
-
 	console.log("> Executing", url);
+
 	WebAssembly.instantiateStreaming(fetch(url, { cache: "no-store" }), window).then(
-		(obj) => {
-			window.wasm = obj.instance.exports;
-			obj.instance.exports.main()
-		}
+		(obj) => (window.wasm = obj.instance.exports).main()
 	).catch(error => console.error(error));
 }
