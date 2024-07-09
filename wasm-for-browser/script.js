@@ -37,7 +37,10 @@ function executeWasm(url) {
 	console.log("> Executing", url);
 
 	WebAssembly.instantiateStreaming(fetch(url, { cache: "no-store" }), window).then(
-		(obj) => (window.wasm = obj.instance.exports).main(obj.instance.exports.mem?.buffer)
+		(obj) => {
+			let returned_value = (window.wasm = obj.instance.exports).main(obj.instance.exports.mem?.buffer);
+			ORIGINAL_CONSOLE_LOG(returned_value);
+		}
 	).catch(error => console.error(error));
 }
 
